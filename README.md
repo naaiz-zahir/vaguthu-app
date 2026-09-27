@@ -62,13 +62,21 @@ Without Firebase config, the app runs in **local mode** and data stays in that b
 
 ## Deploy (Firebase Hosting)
 
-```bash
-npm run build
-firebase deploy --only hosting
-```
+Every push to `main` runs `.github/workflows/deploy.yml`, which tests, builds and deploys to
+`https://<project-id>.web.app`. It needs these repository secrets
+(**Settings → Secrets and variables → Actions → New repository secret**):
 
-After the first deploy, add your hosting domain under **Authentication → Settings → Authorized domains**
-if it isn't already listed.
+| Secret | Value |
+|---|---|
+| `VITE_FIREBASE_API_KEY` | `apiKey` from your Firebase web config |
+| `VITE_FIREBASE_AUTH_DOMAIN` | `authDomain` |
+| `VITE_FIREBASE_PROJECT_ID` | `projectId` |
+| `VITE_FIREBASE_APP_ID` | `appId` |
+| `FIREBASE_SERVICE_ACCOUNT` | The whole JSON key file of a service account with the **Firebase Hosting Admin** role |
+
+You can also run it by hand from the **Actions** tab (**Deploy to Firebase Hosting → Run workflow**).
+
+To deploy from your own machine instead: `npm run build && npx firebase-tools deploy --only hosting --project <project-id>`.
 
 ## Data model
 
