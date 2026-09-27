@@ -284,9 +284,9 @@ function ReportBody({ data, period, showTable, setShowTable, nameOf, colorOf, th
             <thead>
               <tr>
                 <th>Category</th>
-                <th className="num">This {period}</th>
+                <th className="num hide-sm">This {period}</th>
                 <th className="num">Avg / day</th>
-                <th className="num">Last {period} avg</th>
+                <th className="num hide-sm">Last {period} avg</th>
                 <th className="num">Change / day</th>
               </tr>
             </thead>
@@ -297,9 +297,9 @@ function ReportBody({ data, period, showTable, setShowTable, nameOf, colorOf, th
                     <span className="swatch" style={{ background: colorOf(t.categoryId) }} />
                     {nameOf(t.categoryId)}
                   </td>
-                  <td className="num">{t.current ? formatDuration(t.current) : '–'}</td>
+                  <td className="num hide-sm">{t.current ? formatDuration(t.current) : '–'}</td>
                   <td className="num">{t.current ? formatDuration(t.currentAvg) : '–'}</td>
-                  <td className="num muted">{t.previous ? formatDuration(t.previousAvg) : '–'}</td>
+                  <td className="num muted hide-sm">{t.previous ? formatDuration(t.previousAvg) : '–'}</td>
                   <td className="num">
                     <Delta minutes={t.deltaAvg} />
                   </td>
@@ -310,9 +310,9 @@ function ReportBody({ data, period, showTable, setShowTable, nameOf, colorOf, th
                   <span className="swatch" style={{ background: theme.untracked }} />
                   Untracked
                 </td>
-                <td className="num">{formatDuration(current.untracked)}</td>
+                <td className="num hide-sm">{formatDuration(current.untracked)}</td>
                 <td className="num">{formatDuration(current.untracked / Math.max(1, current.elapsedDays))}</td>
-                <td className="num muted">{formatDuration(previous.untracked / Math.max(1, previous.elapsedDays))}</td>
+                <td className="num muted hide-sm">{formatDuration(previous.untracked / Math.max(1, previous.elapsedDays))}</td>
                 <td className="num">
                   <Delta minutes={current.untracked / Math.max(1, current.elapsedDays) - previous.untracked / Math.max(1, previous.elapsedDays)} />
                 </td>

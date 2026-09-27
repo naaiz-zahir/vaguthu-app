@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { applyRange, formatClock, formatDuration, gaps, minutesByCategory, removeEntry, trackedMinutes } from '../lib/entries';
 import { elapsedMinutes, fromKey, shiftDay, toKey } from '../lib/dates';
@@ -6,6 +6,8 @@ import type { DataStore } from '../lib/store';
 import { SLOT_MINUTES, type Category, type DayDoc, type Entry, type Settings } from '../lib/types';
 import TimelineGrid from './TimelineGrid';
 import EntryForm, { type EntryInput } from './EntryForm';
+import Sheet from './Sheet';
+import { MOBILE, useMedia } from './useMedia';
 
 interface Props {
   store: DataStore;
@@ -19,6 +21,13 @@ export default function DayView({ store, settings, onError }: Props) {
   const [brush, setBrush] = useState<string | null>(() => settings.categories.find((c) => !c.archived)?.id ?? null);
   const [editing, setEditing] = useState<Entry | null>(null);
   const [now, setNow] = useState(() => new Date());
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const mobile = useMedia(MOBILE);
+  const coarse = useMedia('(pointer: coarse)');
+  const closeSheet = useCallback(() => {
+    setSheetOpen(false);
+    setEditing(null);
+  }, []);
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 60_000);
@@ -98,6 +107,96 @@ export default function DayView({ store, settings, onError }: Props) {
   const untracked = dayGaps.reduce((s, g) => s + g.end - g.start, 0);
   const byCat = [...minutesByCategory(entries).entries()].sort((a, b) => b[1] - a[1]);
 
+  const breakdown = byCat.length > 0 && (
+    <ul className="cat-bars">
+      {byCat.map(([id, m]) => (
+        <li key={id}>
+          <span className="swatch" style={{ background: catMap.get(id)?.color ?? '#999' }} />
+          <span className="name">{catMap.get(id)?.name ?? 'Deleted category'}</span>
+          <span className="value">{formatDuration(m)}</span>
+        </li>
+      ))}
+    </ul>
+  );
+
+  const summary = (
+    <section className="card summary">
+      <div className="stats">
+        <div>
+          <span className="stat-value">{formatDuration(tracked)}</span>
+          <span className="stat-label">tracked</span>
+        </div>
+        <div>
+          <span className="stat-value">{formatDuration(untracked)}</span>
+          <span className="stat-label">untracked{isToday ? ' so far' : ''}</span>
+        </div>
+      </div>
+      {mobile ? (
+        byCat.length > 0 && (
+          <details className="gaps">
+            <summary>Breakdown by category</summary>
+            {breakdown}
+          </details>
+        )
+      ) : (
+        breakdown
+      )}
+      {dayGaps.length > 0 && (
+        <details className="gaps">
+          <summary>
+            {dayGaps.length} untracked gap{dayGaps.length > 1 ? 's' : ''}
+          </summary>
+          <ul>
+            {dayGaps.map((g) => (
+              <li key={g.start}>
+                {formatClock(g.start)}–{formatClock(g.end)} <span className="muted">({formatDuration(g.end - g.start)})</span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+    </section>
+  );
+
+  const form = (
+    <EntryForm
+      categories={active.concat(editing && catMap.get(editing.categoryId)?.archived ? [catMap.get(editing.categoryId)!] : [])}
+      editing={editing}
+      defaultStart={Math.min(lastEnd, 1440 - SLOT_MINUTES)}
+      defaultEnd={Math.min(defaultEnd, 1440)}
+      defaultCategory={brush}
+      onSubmit={(v) => {
+        submit(v);
+        setSheetOpen(false);
+      }}
+      onCancelEdit={closeSheet}
+    />
+  );
+
+  const entryList = (
+    <section className="card">
+      <h3>Entries</h3>
+      {entries.length === 0 ? (
+        <p className="muted">Nothing logged yet.</p>
+      ) : (
+        <ul className="entry-list">
+          {entries.map((e) => (
+            <EntryRow
+              key={e.id}
+              entry={e}
+              cat={catMap.get(e.categoryId)}
+              onEdit={() => {
+                setEditing(e);
+                setSheetOpen(true);
+              }}
+              onDelete={() => remove(e.id)}
+            />
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+
   return (
     <div className="day-view">
       <div className="day-nav">
@@ -105,7 +204,10 @@ export default function DayView({ store, settings, onError }: Props) {
           ‹
         </button>
         <div className="day-title">
-          <strong>{format(fromKey(date), 'EEEE')}</strong>
+          <strong>
+            <span className="long">{format(fromKey(date), 'EEEE')}</span>
+            <span className="short">{format(fromKey(date), 'EEE')}</span>
+          </strong>
           <input type="date" value={date} onChange={(e) => e.target.value && setDate(e.target.value)} />
         </div>
         <button className="ghost" onClick={() => setDate(shiftDay(date, 1))} aria-label="Next day">
@@ -117,6 +219,8 @@ export default function DayView({ store, settings, onError }: Props) {
           </button>
         )}
       </div>
+
+      {mobile && summary}
 
       <div className="day-layout">
         <section className="card grid-card">
@@ -138,73 +242,31 @@ export default function DayView({ store, settings, onError }: Props) {
               Eraser
             </button>
           </div>
-          <p className="hint">Tap or drag across 15-minute cells to paint. Tapping a cell that already has the selected category clears it.</p>
+          <p className="hint">
+            {coarse
+              ? 'Tap a cell to paint it. Long-press, then drag to paint a range. Tap a cell that already has the selected category to clear it.'
+              : 'Click a cell, or drag from one cell to another to paint everything in between. Clicking a cell that already has the selected category clears it.'}
+          </p>
           <TimelineGrid entries={entries} categories={catMap} brush={brush} currentSlot={currentSlot} onPaint={paint} />
         </section>
 
         <aside className="side">
-          <section className="card summary">
-            <div className="stats">
-              <div>
-                <span className="stat-value">{formatDuration(tracked)}</span>
-                <span className="stat-label">tracked</span>
-              </div>
-              <div>
-                <span className="stat-value">{formatDuration(untracked)}</span>
-                <span className="stat-label">untracked{isToday ? ' so far' : ''}</span>
-              </div>
-            </div>
-            {byCat.length > 0 && (
-              <ul className="cat-bars">
-                {byCat.map(([id, m]) => (
-                  <li key={id}>
-                    <span className="swatch" style={{ background: catMap.get(id)?.color ?? '#999' }} />
-                    <span className="name">{catMap.get(id)?.name ?? 'Deleted category'}</span>
-                    <span className="value">{formatDuration(m)}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {dayGaps.length > 0 && (
-              <details className="gaps">
-                <summary>
-                  {dayGaps.length} untracked gap{dayGaps.length > 1 ? 's' : ''}
-                </summary>
-                <ul>
-                  {dayGaps.map((g) => (
-                    <li key={g.start}>
-                      {formatClock(g.start)}–{formatClock(g.end)} <span className="muted">({formatDuration(g.end - g.start)})</span>
-                    </li>
-                  ))}
-                </ul>
-              </details>
-            )}
-          </section>
-
-          <EntryForm
-            categories={active.concat(editing && catMap.get(editing.categoryId)?.archived ? [catMap.get(editing.categoryId)!] : [])}
-            editing={editing}
-            defaultStart={Math.min(lastEnd, 1440 - SLOT_MINUTES)}
-            defaultEnd={Math.min(defaultEnd, 1440)}
-            defaultCategory={brush}
-            onSubmit={submit}
-            onCancelEdit={() => setEditing(null)}
-          />
-
-          <section className="card">
-            <h3>Entries</h3>
-            {entries.length === 0 ? (
-              <p className="muted">Nothing logged yet.</p>
-            ) : (
-              <ul className="entry-list">
-                {entries.map((e) => (
-                  <EntryRow key={e.id} entry={e} cat={catMap.get(e.categoryId)} onEdit={() => setEditing(e)} onDelete={() => remove(e.id)} />
-                ))}
-              </ul>
-            )}
-          </section>
+          {!mobile && summary}
+          {!mobile && form}
+          {entryList}
         </aside>
       </div>
+
+      {mobile && (
+        <>
+          <button className="fab" onClick={() => setSheetOpen(true)} aria-label="Add entry">
+            +
+          </button>
+          <Sheet open={sheetOpen} onClose={closeSheet}>
+            {form}
+          </Sheet>
+        </>
+      )}
     </div>
   );
 }

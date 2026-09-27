@@ -18,7 +18,22 @@ and seeing where your time goes each week and month.
   - Untracked time: in the day view as a list of gaps, and in reports per day and as a total.
 - **Sync.** Firebase Auth (Google sign-in) with Firestore. It works offline and syncs when you're back online.
 - **Export.** Download all your data as JSON from the Categories tab.
-- Supports light and dark mode and works on phones.
+- Supports light and dark mode.
+
+## On your phone
+
+The app is built for phones first:
+
+- **Bottom tab bar** for switching between Log, Reports and Categories with your thumb.
+- **Painting the grid:** tap a cell to paint it. **Long-press, then drag** to paint a whole range, such as a night's sleep.
+  A normal swipe scrolls the page.
+- **Category bar** that stays at the top of the screen while you scroll through the day.
+- **+ button** that opens the add/edit entry form as a panel from the bottom of the screen.
+- **Install it:** it's a PWA (progressive web app). Open the deployed site, then use **Share → Add to Home Screen** on iPhone,
+  or **⋮ → Install app** in Chrome on Android. It opens full-screen like a native app and the app itself loads
+  offline. Entries you make offline sync once you're back online.
+
+Installing needs the site to be served over HTTPS, which Firebase Hosting provides.
 
 ## Run locally
 
